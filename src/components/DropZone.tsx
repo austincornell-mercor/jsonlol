@@ -64,33 +64,41 @@ export function DropZone() {
       <div className="drop-zone-content">
         {isLoading ? (
           <>
-            <div className="drop-icon loading-spinner">
+            <div className="drop-icon loading">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10" opacity="0.25" />
                 <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
               </svg>
             </div>
             <h2>Loading file...</h2>
+            <p>Parsing your data</p>
           </>
         ) : (
           <>
             <div className="drop-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"
-                />
+                <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
+                <path d="M14 8h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <h2>Drop your data file here</h2>
-            <p>or click to browse</p>
+            <h2>Drop your file here</h2>
+            <p>Drag and drop, or click to browse your files</p>
+            
+            <button className="drop-browse-btn" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+              </svg>
+              Choose File
+            </button>
+            
             <div className="supported-formats">
               <span className="format-badge">JSON</span>
               <span className="format-badge">JSONL</span>
               <span className="format-badge">CSV</span>
               <span className="format-badge">TSV</span>
             </div>
+            
+            <p className="drop-hint">Supports up to 100MB files</p>
           </>
         )}
 

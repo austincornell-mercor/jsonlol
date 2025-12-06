@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useCompareStore } from '@/stores/useCompareStore';
 import { Header } from '@/components/Header';
 import { Toolbar } from '@/components/Toolbar';
 import { DropZone } from '@/components/DropZone';
@@ -9,6 +10,7 @@ import { RecordList } from '@/components/RecordList';
 import { SchemaExplorer } from '@/components/SchemaExplorer';
 import { CodeView } from '@/views/CodeView';
 import { TableView } from '@/views/TableView';
+import { CompareView } from '@/views/CompareView';
 
 type SidebarPanel = 'records' | 'schema' | null;
 
@@ -22,6 +24,8 @@ function App() {
   
   const viewMode = useSettingsStore((s) => s.viewMode);
   const setViewMode = useSettingsStore((s) => s.setViewMode);
+
+  const isComparing = useCompareStore((s) => s.isComparing);
 
   const [leftPanel, setLeftPanel] = useState<SidebarPanel>('records');
   const [rightPanel, setRightPanel] = useState<SidebarPanel>(null);
@@ -131,33 +135,103 @@ function App() {
                 >
                   <div className="sidebar">
                     <div className="sidebar-header">
-                      <span className="sidebar-title">Records</span>
-                      {document.isMultiRecord && (
-                        <div className="sidebar-search">
+                      <div className="sidebar-header-left">
+                        <span className="sidebar-title">Records</span>
+                        <span className="sidebar-subtitle">{document.totalRecords} total</span>
+                      </div>
+                      <button 
+                        className="sidebar-close-btn" 
+                        onClick={() => toggleLeftPanel(null)}
+                        title="Close sidebar"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    </div>
+                    {document.isMultiRecord && (
+                      <div className="sidebar-search-bar">
+                        <div className="sidebar-search-box">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="sidebar-search-icon">
                             <circle cx="11" cy="11" r="8" />
                             <line x1="21" y1="21" x2="16.65" y2="16.65" />
                           </svg>
                           <input
                             type="text"
-                            placeholder="Filter..."
+                            placeholder="Search records..."
                             value={search.globalTerm}
                             onChange={(e) => setGlobalSearch(e.target.value)}
                             className="sidebar-search-input"
                           />
+                          {search.globalTerm && (
+                            <button 
+                              className="sidebar-search-btn clear" 
+                              onClick={() => setGlobalSearch('')}
+                              title="Clear search"
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
-                      )}
-                      <button 
-                        className="btn-icon" 
-                        onClick={() => toggleLeftPanel(null)}
-                        title="Close"
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 14, height: 14}}>
-                          <line x1="18" y1="6" x2="6" y2="18" />
-                          <line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
-                      </button>
-                    </div>
+                        {search.globalTerm && search.totalMatches > 0 && (
+                          <>
+                            <span className="sidebar-search-count">{search.currentMatch + 1}/{search.totalMatches}</span>
+                            <div className="sidebar-search-nav">
+                              <button 
+                                className="sidebar-search-btn" 
+                                onClick={() => {
+                                  const prevMatchIdx = search.currentMatch > 0 
+                                    ? search.currentMatch - 1 
+                                    : search.totalMatches - 1;
+                                  // Find matching record and navigate
+                                  const matches = document.records
+                                    .map((r, i) => ({ index: i, matches: JSON.stringify(r.data).toLowerCase().includes(search.globalTerm.toLowerCase()) }))
+                                    .filter(r => r.matches);
+                                  if (matches[prevMatchIdx]) {
+                                    setCurrentIndex(matches[prevMatchIdx].index);
+                                    useDocumentStore.setState(state => ({ 
+                                      search: { ...state.search, currentMatch: prevMatchIdx }
+                                    }));
+                                  }
+                                }}
+                                title="Previous match (↑)"
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="18 15 12 9 6 15" />
+                                </svg>
+                              </button>
+                              <button 
+                                className="sidebar-search-btn" 
+                                onClick={() => {
+                                  const nextMatchIdx = search.currentMatch < search.totalMatches - 1 
+                                    ? search.currentMatch + 1 
+                                    : 0;
+                                  // Find matching record and navigate
+                                  const matches = document.records
+                                    .map((r, i) => ({ index: i, matches: JSON.stringify(r.data).toLowerCase().includes(search.globalTerm.toLowerCase()) }))
+                                    .filter(r => r.matches);
+                                  if (matches[nextMatchIdx]) {
+                                    setCurrentIndex(matches[nextMatchIdx].index);
+                                    useDocumentStore.setState(state => ({ 
+                                      search: { ...state.search, currentMatch: nextMatchIdx }
+                                    }));
+                                  }
+                                }}
+                                title="Next match (↓)"
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                     <div className="sidebar-content">
                       <RecordList />
                     </div>
@@ -172,7 +246,13 @@ function App() {
               <div className="main-editor">
                 <Toolbar />
                 <div className="editor-container">
-                  {viewMode === 'code' ? <CodeView /> : <TableView />}
+                  {isComparing ? (
+                    <CompareView />
+                  ) : viewMode === 'code' ? (
+                    <CodeView />
+                  ) : (
+                    <TableView />
+                  )}
                 </div>
               </div>
             </Panel>
@@ -189,13 +269,16 @@ function App() {
                 >
                   <div className="sidebar right">
                     <div className="sidebar-header">
-                      <span className="sidebar-title">Schema Explorer</span>
+                      <div className="sidebar-header-left">
+                        <span className="sidebar-title">Schema</span>
+                        <span className="sidebar-subtitle">Data structure</span>
+                      </div>
                       <button 
-                        className="btn-icon" 
+                        className="sidebar-close-btn" 
                         onClick={() => toggleRightPanel(null)}
-                        title="Close"
+                        title="Close sidebar"
                       >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 14, height: 14}}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <line x1="18" y1="6" x2="6" y2="18" />
                           <line x1="6" y1="6" x2="18" y2="18" />
                         </svg>

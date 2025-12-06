@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useCompareStore } from '@/stores/useCompareStore';
 import { formatBytes } from '@/core/types';
-import { getParser } from '@/parsers';
 
 export function Header() {
   const document = useDocumentStore((s) => s.document);
@@ -14,10 +14,15 @@ export function Header() {
   
   const theme = useSettingsStore((s) => s.theme);
   const toggleTheme = useSettingsStore((s) => s.toggleTheme);
+  
+  const leftSource = useCompareStore((s) => s.leftSource);
+  const isComparing = leftSource !== null;
 
   const [showExportModal, setShowExportModal] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [pendingEditMode, setPendingEditMode] = useState(false);
+  const [exportFilename, setExportFilename] = useState('');
+  const [exportType, setExportType] = useState<'current' | 'all'>('current');
 
   const handleEditModeToggle = (enabled: boolean) => {
     if (!enabled && editor.hasChanges) {
@@ -40,11 +45,16 @@ export function Header() {
   };
 
   const handleExportClick = () => {
-    if (document?.isMultiRecord) {
-      setShowExportModal(true);
-    } else {
-      exportCurrent();
-    }
+    // Set default filename based on current file
+    const baseName = document?.fileName.replace(/\.[^/.]+$/, '') || 'export';
+    setExportFilename(`${baseName}_export`);
+    setExportType('current');
+    setShowExportModal(true);
+  };
+  
+  const getExportFilename = (type: 'current' | 'all') => {
+    const ext = type === 'current' ? 'json' : (document?.format || 'json');
+    return `${exportFilename}.${ext}`;
   };
 
   const getRecordData = (index: number) => {
@@ -114,7 +124,7 @@ export function Header() {
     const url = URL.createObjectURL(blob);
     const a = window.document.createElement('a');
     a.href = url;
-    a.download = exportData.fileName;
+    a.download = getExportFilename('current');
     a.click();
     URL.revokeObjectURL(url);
     setShowExportModal(false);
@@ -129,7 +139,7 @@ export function Header() {
     const url = URL.createObjectURL(blob);
     const a = window.document.createElement('a');
     a.href = url;
-    a.download = exportData.fileName;
+    a.download = getExportFilename('all');
     a.click();
     URL.revokeObjectURL(url);
     setShowExportModal(false);
@@ -140,18 +150,20 @@ export function Header() {
     const exportData = buildExportContent('current');
     if (!exportData) return;
     
+    const filename = getExportFilename('current');
+    
     // Download the file
     const blob = new Blob([exportData.content], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = window.document.createElement('a');
     a.href = url;
-    a.download = exportData.fileName;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
     
     // Load the content back into the app
     const loadContent = useDocumentStore.getState().loadContent;
-    loadContent(exportData.content, exportData.fileName);
+    loadContent(exportData.content, filename);
     
     setShowExportModal(false);
     showToast('Saved and loaded!', 'success');
@@ -161,18 +173,20 @@ export function Header() {
     const exportData = buildExportContent('all');
     if (!exportData) return;
     
+    const filename = getExportFilename('all');
+    
     // Download the file
     const blob = new Blob([exportData.content], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = window.document.createElement('a');
     a.href = url;
-    a.download = exportData.fileName;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
     
     // Load the content back into the app
     const loadContent = useDocumentStore.getState().loadContent;
-    loadContent(exportData.content, exportData.fileName);
+    loadContent(exportData.content, filename);
     
     setShowExportModal(false);
     showToast('Saved and loaded!', 'success');
@@ -212,141 +226,190 @@ export function Header() {
   return (
     <>
       <header className="header">
-        <div className="header-left">
-          <h1 className="header-title">
-            <span className="header-logo">{'{}'}</span>
-            jsonlol
-          </h1>
-          
-          {document && (
-            <div className="header-info">
-              <span className="file-name">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="icon">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                </svg>
-                {document.fileName}
-              </span>
-              <span className="record-count">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="icon">
-                  <ellipse cx="12" cy="5" rx="9" ry="3" />
-                  <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-                  <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-                </svg>
-                {document.totalRecords.toLocaleString()} {document.totalRecords === 1 ? 'record' : 'records'}
-              </span>
-              <span className="file-size">{formatBytes(document.totalSize)}</span>
-            </div>
-          )}
+        {/* Logo */}
+        <div className="logo">
+          <div className="logo-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1" />
+              <path d="M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1" />
+            </svg>
+          </div>
+          <span>jsonlol</span>
         </div>
+          
+        {/* File Info */}
+        {document && (
+          <div className="file-info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="file-icon">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            <span className="file-name">{document.fileName}</span>
+            <span className="file-size">{formatBytes(document.totalSize)}</span>
+          </div>
+        )}
 
+        {/* Record Count Badge */}
+        {document && (
+          <div className="record-count">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <ellipse cx="12" cy="5" rx="9" ry="3" />
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+            </svg>
+            <span>{document.totalRecords.toLocaleString()} {document.totalRecords === 1 ? 'record' : 'records'}</span>
+          </div>
+        )}
+
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* Actions */}
         <div className="header-actions">
           {document && (
             <>
-              <button className="btn-header" onClick={reset} title="Load New File">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="icon">
-                  <path d="M3 7v6h6" />
-                  <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+              <button className="btn btn-ghost" onClick={reset} title="Load New File">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 5v14M5 12h14" />
                 </svg>
                 <span>New</span>
               </button>
 
-              <button 
-                className={`btn-header ${editor.hasChanges ? 'has-changes' : ''}`} 
-                onClick={handleExportClick} 
-                title="Export"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="icon">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                <span>Export</span>
-              </button>
+              {!isComparing && (
+                <>
+                  <button 
+                    className={`btn ${editor.hasChanges ? 'btn-accent has-changes' : 'btn-ghost'}`} 
+                    onClick={handleExportClick} 
+                    title="Export"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    <span>Export</span>
+                  </button>
 
-              <button className="btn-header" onClick={handleCopy} title="Copy Current Record">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="icon">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </svg>
-                <span>Copy</span>
-              </button>
+                  <button className="btn btn-ghost" onClick={handleCopy} title="Copy Current Record">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    <span>Copy</span>
+                  </button>
+                </>
+              )}
 
               <div className="header-divider" />
 
               {/* Edit Mode Toggle */}
-              <div className="toggle-switch">
+              <label 
+                className={`toggle-pill ${editor.isEditing ? 'active edit' : ''} ${isComparing ? 'disabled' : ''}`}
+                title={isComparing ? 'Editing is disabled in compare mode' : 'Toggle Edit Mode'}
+              >
                 <input
                   type="checkbox"
-                  id="edit-mode"
                   checked={editor.isEditing}
-                  onChange={(e) => handleEditModeToggle(e.target.checked)}
+                  onChange={(e) => !isComparing && handleEditModeToggle(e.target.checked)}
+                  disabled={isComparing}
                 />
-                <label htmlFor="edit-mode" className="toggle-label toggle-edit">
-                  <span className="toggle-button" />
-                </label>
-                <span className="toggle-text">Edit</span>
-              </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                <span>Edit</span>
+              </label>
             </>
           )}
 
-          <div className="header-divider" />
-
           {/* Theme Toggle */}
-          <div className="toggle-switch">
+          <label className={`toggle-pill ${theme === 'dark' ? 'active dark' : ''}`}>
             <input
               type="checkbox"
-              id="dark-mode"
               checked={theme === 'dark'}
               onChange={toggleTheme}
             />
-            <label htmlFor="dark-mode" className="toggle-label toggle-dark">
-              <span className="toggle-button" />
-            </label>
-            <span className="toggle-text">Dark</span>
-          </div>
+            {theme === 'dark' ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="5" />
+                <line x1="12" y1="1" x2="12" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                <line x1="1" y1="12" x2="3" y2="12" />
+                <line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+              </svg>
+            )}
+            <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
+          </label>
         </div>
       </header>
 
       {/* Export Modal */}
       {showExportModal && (
         <div className="modal-overlay" onClick={() => setShowExportModal(false)}>
-          <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+          <div className="modal modal-export" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="icon">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              Export Options
+              Export File
             </div>
-            <div className="modal-body">
-              Choose what you'd like to export:
-            </div>
-            <div className="modal-options">
-              <div className="modal-option-row">
-                <div className="modal-option" onClick={exportCurrent}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="icon">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                  </svg>
-                  <div className="modal-option-content">
-                    <strong>Current Record Only</strong>
-                    <span>Export just this JSON record</span>
-                  </div>
-                </div>
-                {editor.hasChanges && (
-                  <button className="modal-btn modal-btn-success" onClick={saveAndLoadCurrent} title="Save file and reload it">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 14, height: 14}}>
-                      <path d="M21 12a9 9 0 11-9-9" />
-                      <polyline points="21 3 21 9 15 9" />
-                    </svg>
-                    Save & Load
-                  </button>
-                )}
+            
+            {/* Filename Input */}
+            <div className="modal-filename">
+              <label htmlFor="export-filename">Filename</label>
+              <div className="filename-input-wrapper">
+                <input
+                  id="export-filename"
+                  type="text"
+                  value={exportFilename}
+                  onChange={(e) => setExportFilename(e.target.value)}
+                  placeholder="Enter filename..."
+                  className="filename-input"
+                />
+                <span className="filename-ext">.{exportType === 'current' ? 'json' : (document?.format || 'json')}</span>
               </div>
-              <div className="modal-option-row">
-                <div className="modal-option" onClick={exportAll}>
+            </div>
+            
+            <div className="modal-body">
+              Choose what to export:
+            </div>
+            
+            <div className="modal-options">
+              <div 
+                className={`modal-option-card ${exportType === 'current' ? 'selected' : ''}`}
+                onClick={() => setExportType('current')}
+              >
+                <div className="option-radio">
+                  <div className="radio-dot" />
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="icon">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                <div className="modal-option-content">
+                  <strong>Current Record Only</strong>
+                  <span>Export record #{currentIndex + 1} as JSON</span>
+                </div>
+              </div>
+              
+              {document?.isMultiRecord && (
+                <div 
+                  className={`modal-option-card ${exportType === 'all' ? 'selected' : ''}`}
+                  onClick={() => setExportType('all')}
+                >
+                  <div className="option-radio">
+                    <div className="radio-dot" />
+                  </div>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="icon">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
@@ -358,21 +421,37 @@ export function Header() {
                     <span>Export all {document?.totalRecords} records{editor.hasChanges ? ' (with edits)' : ''}</span>
                   </div>
                 </div>
-                {editor.hasChanges && (
-                  <button className="modal-btn modal-btn-success" onClick={saveAndLoadAll} title="Save file and reload it">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 14, height: 14}}>
-                      <path d="M21 12a9 9 0 11-9-9" />
-                      <polyline points="21 3 21 9 15 9" />
-                    </svg>
-                    Save & Load
-                  </button>
-                )}
-              </div>
+              )}
             </div>
+            
             <div className="modal-actions">
               <button className="modal-btn modal-btn-secondary" onClick={() => setShowExportModal(false)}>
                 Cancel
               </button>
+              <button 
+                className="modal-btn modal-btn-primary" 
+                onClick={() => exportType === 'current' ? exportCurrent() : exportAll()}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 14, height: 14}}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Export
+              </button>
+              {editor.hasChanges && (
+                <button 
+                  className="modal-btn modal-btn-success-alt" 
+                  onClick={() => exportType === 'current' ? saveAndLoadCurrent() : saveAndLoadAll()}
+                  title="Save file and reload it"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 14, height: 14}}>
+                    <path d="M21 12a9 9 0 11-9-9" />
+                    <polyline points="21 3 21 9 15 9" />
+                  </svg>
+                  Save & Load
+                </button>
+              )}
             </div>
           </div>
         </div>

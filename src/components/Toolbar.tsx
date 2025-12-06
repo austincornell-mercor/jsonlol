@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useDocumentStore } from '@/stores/useDocumentStore';
-import { useSettingsStore, type ViewMode } from '@/stores/useSettingsStore';
+import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useCompareStore } from '@/stores/useCompareStore';
 
 export function Toolbar() {
   const document = useDocumentStore((s) => s.document);
@@ -14,8 +15,22 @@ export function Toolbar() {
   const decreaseFontSize = useSettingsStore((s) => s.decreaseFontSize);
   const viewMode = useSettingsStore((s) => s.viewMode);
   const setViewMode = useSettingsStore((s) => s.setViewMode);
+
+  const isComparing = useCompareStore((s) => s.isComparing);
+  const startCompare = useCompareStore((s) => s.startCompare);
+  const stopCompare = useCompareStore((s) => s.stopCompare);
+  const setLeftSource = useCompareStore((s) => s.setLeftSource);
   
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleToggleCompare = () => {
+    if (isComparing) {
+      stopCompare();
+    } else {
+      setLeftSource({ type: 'record', index: currentIndex });
+      startCompare();
+    }
+  };
 
   // Handle global Ctrl+F keybind
   useEffect(() => {
@@ -44,7 +59,8 @@ export function Toolbar() {
   if (!document) return null;
 
   const isMultiRecord = document.isMultiRecord;
-  const isTabularFormat = document.format === 'csv' || document.format === 'tsv';
+  // Compare is always available as an option
+  const showCompareButton = true;
   
   // Determine search placeholder based on format and view mode
   const getSearchPlaceholder = () => {
@@ -68,9 +84,10 @@ export function Toolbar() {
       {/* View Mode Switcher */}
       <div className="toolbar-section view-switcher">
         <button
-          className={`btn-view ${viewMode === 'code' ? 'active' : ''}`}
-          onClick={() => setViewMode('code')}
-          title="Code View"
+          className={`btn-view ${viewMode === 'code' && !isComparing ? 'active' : ''} ${isComparing ? 'disabled' : ''}`}
+          onClick={() => !isComparing && setViewMode('code')}
+          title={isComparing ? 'Exit compare mode to switch views' : 'Code View'}
+          disabled={isComparing}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="16 18 22 12 16 6" />
@@ -79,9 +96,10 @@ export function Toolbar() {
           <span>Code</span>
         </button>
         <button
-          className={`btn-view ${viewMode === 'table' ? 'active' : ''}`}
-          onClick={() => setViewMode('table')}
-          title="Table View"
+          className={`btn-view ${viewMode === 'table' && !isComparing ? 'active' : ''} ${isComparing ? 'disabled' : ''}`}
+          onClick={() => !isComparing && setViewMode('table')}
+          title={isComparing ? 'Exit compare mode to switch views' : 'Table View'}
+          disabled={isComparing}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -92,12 +110,42 @@ export function Toolbar() {
           </svg>
           <span>Table</span>
         </button>
+        
+        {/* Compare button - always visible */}
+        {showCompareButton && !isComparing && (
+          <button
+            className="btn-view btn-compare"
+            onClick={handleToggleCompare}
+            title="Compare Side-by-Side"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="7" height="18" rx="1" />
+              <rect x="14" y="3" width="7" height="18" rx="1" />
+            </svg>
+            <span>Compare</span>
+          </button>
+        )}
+        
+        {/* Exit Compare - prominent when comparing */}
+        {isComparing && (
+          <button
+            className="btn-view btn-exit-compare"
+            onClick={handleToggleCompare}
+            title="Exit Compare Mode"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+            <span>Exit Compare</span>
+          </button>
+        )}
       </div>
 
       <div className="toolbar-divider" />
 
       {/* Navigation */}
-      {isMultiRecord && viewMode === 'code' && (
+      {isMultiRecord && viewMode === 'code' && !isComparing && (
         <>
           <div className="toolbar-section navigation-section">
             <button
