@@ -1,0 +1,37 @@
+{
+  "name": "jsonlol",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "A modern, feature-rich data viewer for JSON, JSONL, CSV and more",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "deploy:gh-pages": "npm run build && gh-pages -d dist",
+    "serve": "npx serve dist"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.6.0",
+    "@tanstack/react-virtual": "^3.10.8",
+    "ag-grid-community": "^32.3.2",
+    "ag-grid-react": "^32.3.2",
+    "immer": "^10.1.1",
+    "monaco-editor": "^0.52.0",
+    "papaparse": "^5.4.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-resizable-panels": "^2.1.6",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/papaparse": "^5.3.15",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "gh-pages": "^6.2.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}
+
