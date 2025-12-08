@@ -11,12 +11,16 @@ export function Header() {
   const editor = useDocumentStore((s) => s.editor);
   const setEditMode = useDocumentStore((s) => s.setEditMode);
   const discardChanges = useDocumentStore((s) => s.discardChanges);
-  
+
   const theme = useSettingsStore((s) => s.theme);
   const toggleTheme = useSettingsStore((s) => s.toggleTheme);
-  
-  const leftSource = useCompareStore((s) => s.leftSource);
-  const isComparing = leftSource !== null;
+
+  /* 
+   * FIX: Use direct isComparing state instead of derived state.
+   * storing leftSource in a variable doesn't mean we are "comparing", 
+   * it just means we have a source selected for POTENTIAL comparison.
+   */
+  const isComparing = useCompareStore((s) => s.isComparing);
 
   const [showExportModal, setShowExportModal] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
@@ -51,7 +55,7 @@ export function Header() {
     setExportType('current');
     setShowExportModal(true);
   };
-  
+
   const getExportFilename = (type: 'current' | 'all') => {
     const ext = type === 'current' ? 'json' : (document?.format || 'json');
     return `${exportFilename}.${ext}`;
@@ -69,7 +73,7 @@ export function Header() {
 
   const buildExportContent = (exportType: 'current' | 'all'): { content: string; ext: string; fileName: string } | null => {
     if (!document) return null;
-    
+
     if (exportType === 'current') {
       const data = getRecordData(currentIndex);
       if (!data) return null;
@@ -81,7 +85,7 @@ export function Header() {
     } else {
       let content: string;
       let ext: string;
-      
+
       if (document.format === 'csv' || document.format === 'tsv') {
         // CSV/TSV export
         const data = document.records.map((_, index) => getRecordData(index) as Record<string, unknown>);
@@ -107,7 +111,7 @@ export function Header() {
         content = JSON.stringify(data, null, 2);
         ext = 'json';
       }
-      
+
       return {
         content,
         ext,
@@ -119,7 +123,7 @@ export function Header() {
   const exportCurrent = () => {
     const exportData = buildExportContent('current');
     if (!exportData) return;
-    
+
     const blob = new Blob([exportData.content], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = window.document.createElement('a');
@@ -134,7 +138,7 @@ export function Header() {
   const exportAll = () => {
     const exportData = buildExportContent('all');
     if (!exportData) return;
-    
+
     const blob = new Blob([exportData.content], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = window.document.createElement('a');
@@ -149,9 +153,9 @@ export function Header() {
   const saveAndLoadCurrent = () => {
     const exportData = buildExportContent('current');
     if (!exportData) return;
-    
+
     const filename = getExportFilename('current');
-    
+
     // Download the file
     const blob = new Blob([exportData.content], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -160,11 +164,11 @@ export function Header() {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-    
+
     // Load the content back into the app
     const loadContent = useDocumentStore.getState().loadContent;
     loadContent(exportData.content, filename);
-    
+
     setShowExportModal(false);
     showToast('Saved and loaded!', 'success');
   };
@@ -172,9 +176,9 @@ export function Header() {
   const saveAndLoadAll = () => {
     const exportData = buildExportContent('all');
     if (!exportData) return;
-    
+
     const filename = getExportFilename('all');
-    
+
     // Download the file
     const blob = new Blob([exportData.content], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -183,18 +187,18 @@ export function Header() {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-    
+
     // Load the content back into the app
     const loadContent = useDocumentStore.getState().loadContent;
     loadContent(exportData.content, filename);
-    
+
     setShowExportModal(false);
     showToast('Saved and loaded!', 'success');
   };
 
   const handleCopy = async () => {
     if (!document) return;
-    
+
     const data = getRecordData(currentIndex);
     if (data) {
       await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
@@ -236,7 +240,7 @@ export function Header() {
           </div>
           <span>jsonlol</span>
         </div>
-          
+
         {/* File Info */}
         {document && (
           <div className="file-info">
@@ -277,9 +281,9 @@ export function Header() {
 
               {!isComparing && (
                 <>
-                  <button 
-                    className={`btn ${editor.hasChanges ? 'btn-accent has-changes' : 'btn-ghost'}`} 
-                    onClick={handleExportClick} 
+                  <button
+                    className={`btn ${editor.hasChanges ? 'btn-accent has-changes' : 'btn-ghost'}`}
+                    onClick={handleExportClick}
                     title="Export"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -303,7 +307,7 @@ export function Header() {
               <div className="header-divider" />
 
               {/* Edit Mode Toggle */}
-              <label 
+              <label
                 className={`toggle-pill ${editor.isEditing ? 'active edit' : ''} ${isComparing ? 'disabled' : ''}`}
                 title={isComparing ? 'Editing is disabled in compare mode' : 'Toggle Edit Mode'}
               >
@@ -363,7 +367,7 @@ export function Header() {
               </svg>
               Export File
             </div>
-            
+
             {/* Filename Input */}
             <div className="modal-filename">
               <label htmlFor="export-filename">Filename</label>
@@ -379,13 +383,13 @@ export function Header() {
                 <span className="filename-ext">.{exportType === 'current' ? 'json' : (document?.format || 'json')}</span>
               </div>
             </div>
-            
+
             <div className="modal-body">
               Choose what to export:
             </div>
-            
+
             <div className="modal-options">
-              <div 
+              <div
                 className={`modal-option-card ${exportType === 'current' ? 'selected' : ''}`}
                 onClick={() => setExportType('current')}
               >
@@ -401,9 +405,9 @@ export function Header() {
                   <span>Export record #{currentIndex + 1} as JSON</span>
                 </div>
               </div>
-              
+
               {document?.isMultiRecord && (
-                <div 
+                <div
                   className={`modal-option-card ${exportType === 'all' ? 'selected' : ''}`}
                   onClick={() => setExportType('all')}
                 >
@@ -423,16 +427,16 @@ export function Header() {
                 </div>
               )}
             </div>
-            
+
             <div className="modal-actions">
               <button className="modal-btn modal-btn-secondary" onClick={() => setShowExportModal(false)}>
                 Cancel
               </button>
-              <button 
-                className="modal-btn modal-btn-primary" 
+              <button
+                className="modal-btn modal-btn-primary"
                 onClick={() => exportType === 'current' ? exportCurrent() : exportAll()}
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 14, height: 14}}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}>
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                   <polyline points="7 10 12 15 17 10" />
                   <line x1="12" y1="15" x2="12" y2="3" />
@@ -440,12 +444,12 @@ export function Header() {
                 Export
               </button>
               {editor.hasChanges && (
-                <button 
-                  className="modal-btn modal-btn-success-alt" 
+                <button
+                  className="modal-btn modal-btn-success-alt"
                   onClick={() => exportType === 'current' ? saveAndLoadCurrent() : saveAndLoadAll()}
                   title="Save file and reload it"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 14, height: 14}}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}>
                     <path d="M21 12a9 9 0 11-9-9" />
                     <polyline points="21 3 21 9 15 9" />
                   </svg>

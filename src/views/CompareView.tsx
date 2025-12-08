@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
-import { DiffEditor, OnMount } from '@monaco-editor/react';
+import { DiffEditor, DiffOnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { useDocumentStore } from '@/stores/useDocumentStore';
 import { useCompareStore, type CompareSource } from '@/stores/useCompareStore';
@@ -13,16 +13,16 @@ const fontSizeMap = {
 };
 
 // Custom Dropdown Component
-function RecordDropdown({ 
-  value, 
-  onChange, 
-  records, 
+function RecordDropdown({
+  value,
+  onChange,
+  records,
   externalRecords,
   externalFileName,
-  side 
-}: { 
-  value: number; 
-  onChange: (index: number, isExternal?: boolean) => void; 
+  side
+}: {
+  value: number;
+  onChange: (index: number, isExternal?: boolean) => void;
   records: { data: unknown }[];
   externalRecords?: { data: unknown }[];
   externalFileName?: string | null;
@@ -44,11 +44,11 @@ function RecordDropdown({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredRecords = records.filter((_, i) => 
+  const filteredRecords = records.filter((_, i) =>
     search === '' || `Record ${i + 1}`.toLowerCase().includes(search.toLowerCase())
   );
 
-  const filteredExternalRecords = externalRecords?.filter((_, i) => 
+  const filteredExternalRecords = externalRecords?.filter((_, i) =>
     search === '' || `Record ${i + 1}`.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -59,7 +59,7 @@ function RecordDropdown({
 
   return (
     <div className="custom-dropdown" ref={dropdownRef}>
-      <button 
+      <button
         className="custom-dropdown-trigger"
         onClick={() => setIsOpen(!isOpen)}
       >
@@ -68,7 +68,7 @@ function RecordDropdown({
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
-      
+
       {isOpen && (
         <div className={`custom-dropdown-menu ${side}`}>
           <div className="dropdown-search">
@@ -92,7 +92,7 @@ function RecordDropdown({
               </button>
             )}
           </div>
-          
+
           <div className="dropdown-list">
             <div className="dropdown-group-label">Current File</div>
             {filteredRecords.slice(0, 100).map((record, i) => {
@@ -117,7 +117,7 @@ function RecordDropdown({
                 </button>
               );
             })}
-            
+
             {externalRecords && externalRecords.length > 0 && (
               <>
                 <div className="dropdown-group-label">{externalFileName || 'External File'}</div>
@@ -149,10 +149,10 @@ function RecordDropdown({
 
 export function CompareView() {
   const diffEditorRef = useRef<editor.IStandaloneDiffEditor | null>(null);
-  
+
   const document = useDocumentStore((s) => s.document);
   const currentIndex = useDocumentStore((s) => s.currentIndex);
-  
+
   const {
     leftSource,
     rightSource,
@@ -164,14 +164,14 @@ export function CompareView() {
     clearExternalFile,
     swapSides,
   } = useCompareStore();
-  
+
   const theme = useSettingsStore((s) => s.theme);
   const fontSize = useSettingsStore((s) => s.fontSize);
 
   // Get content for a source
   const getSourceContent = useCallback((source: CompareSource | null): string => {
     if (!source) return '// Select a source to compare';
-    
+
     switch (source.type) {
       case 'record': {
         if (!document) return '';
@@ -206,7 +206,7 @@ export function CompareView() {
     }
   }, [document, currentIndex, leftSource, setLeftSource]);
 
-  const handleEditorMount: OnMount = useCallback((editor) => {
+  const handleEditorMount: DiffOnMount = useCallback((editor) => {
     diffEditorRef.current = editor;
   }, []);
 
@@ -266,7 +266,7 @@ export function CompareView() {
             side="left"
           />
         </div>
-        
+
         <div className="compare-actions">
           <button className="btn-swap" onClick={swapSides} title="Swap sides">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -275,7 +275,7 @@ export function CompareView() {
               <polyline points="17 8 21 12 17 16" />
             </svg>
           </button>
-          
+
           {externalDocument ? (
             <button className="btn-file-action remove" onClick={clearExternalFile} title={`Remove ${externalFileName}`}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -294,8 +294,8 @@ export function CompareView() {
                 <line x1="9" y1="15" x2="15" y2="15" />
               </svg>
               <span>Add File</span>
-              <input 
-                type="file" 
+              <input
+                type="file"
                 accept=".json,.jsonl,.csv,.tsv"
                 onChange={handleFileSelect}
                 style={{ display: 'none' }}
@@ -303,14 +303,14 @@ export function CompareView() {
             </label>
           )}
         </div>
-        
+
         <div className="compare-source-panel right">
           <span className="source-label">RIGHT</span>
           <RecordDropdown
             value={
-              rightSource?.type === 'record' 
-                ? rightSource.index 
-                : rightSource?.type === 'file' 
+              rightSource?.type === 'record'
+                ? rightSource.index
+                : rightSource?.type === 'file'
                   ? rightSource.recordIndex
                   : 0
             }
@@ -324,12 +324,13 @@ export function CompareView() {
       </div>
 
       {/* Diff editor */}
-      <div 
+      <div
         className="compare-editor"
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleFileDrop}
       >
         <DiffEditor
+          key={`${leftSource?.type}-${leftSource?.type === 'record' ? leftSource.index : ''}-${rightSource?.type}-${rightSource?.type === 'record' ? rightSource.index : ''}`}
           height="100%"
           language="json"
           theme={monacoTheme}
@@ -401,7 +402,7 @@ export function CompareView() {
           }}
         />
       </div>
-      
+
       {/* Drop zone overlay when dragging */}
       {!externalDocument && (
         <div className="compare-drop-hint">

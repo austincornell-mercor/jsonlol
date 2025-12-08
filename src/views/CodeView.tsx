@@ -18,7 +18,7 @@ export function CodeView() {
   const matchesRef = useRef<editor.FindMatch[]>([]);
   const currentMatchIndexRef = useRef(0);
   const [originalContent, setOriginalContent] = useState('');
-  
+
   const document = useDocumentStore((s) => s.document);
   const currentIndex = useDocumentStore((s) => s.currentIndex);
   const isEditing = useDocumentStore((s) => s.editor.isEditing);
@@ -29,7 +29,7 @@ export function CodeView() {
     }));
   }, []);
   const search = useDocumentStore((s) => s.search);
-  
+
   const theme = useSettingsStore((s) => s.theme);
   const fontSize = useSettingsStore((s) => s.fontSize);
   const showMinimap = useSettingsStore((s) => s.showMinimap);
@@ -37,7 +37,7 @@ export function CodeView() {
   const wordWrap = useSettingsStore((s) => s.wordWrap);
 
   const currentRecord = document?.records[currentIndex];
-  
+
   // Get the ORIGINAL content (for comparison)
   const getOriginalContent = useCallback(() => {
     if (!currentRecord) return '';
@@ -61,17 +61,17 @@ export function CodeView() {
     const original = getOriginalContent();
     const content = getRecordContent();
     setOriginalContent(original);
-    
+
     // Check if this record has modifications
     const modifiedRecords = useDocumentStore.getState().editor.modifiedRecords;
     const hasModifications = modifiedRecords.has(currentIndex);
-    
+
     // Only update hasChanges if it's different to avoid loops
     const currentHasChanges = useDocumentStore.getState().editor.hasChanges;
     if (currentHasChanges !== hasModifications) {
       setEditorState({ hasChanges: hasModifications });
     }
-    
+
     // Update editor with content (modified if available)
     if (editorRef.current) {
       editorRef.current.setValue(content);
@@ -107,7 +107,7 @@ export function CodeView() {
 
     const matches = model.findMatches(inDocTerm, true, false, false, null, true);
     matchesRef.current = matches;
-    
+
     if (matches.length > 0) {
       // Create decorations for all matching lines
       const decorations = matches.map((match) => ({
@@ -215,6 +215,7 @@ export function CodeView() {
     });
 
     // Track changes when editing and save to store
+    // Track changes when editing and save to store
     editor.onDidChangeModelContent(() => {
       const state = useDocumentStore.getState();
       const currentIsEditing = state.editor.isEditing;
@@ -222,41 +223,26 @@ export function CodeView() {
         const currentContent = editor.getValue();
         const storedOriginal = originalContent || getOriginalContent();
         const contentChanged = currentContent !== storedOriginal;
-        
+
         // Try to parse the edited content and save to modifiedRecords
         if (contentChanged) {
           try {
             const parsedData = JSON.parse(currentContent);
             const idx = state.currentIndex;
-            const newModifiedRecords = new Map(state.editor.modifiedRecords);
-            newModifiedRecords.set(idx, parsedData);
-            
-            useDocumentStore.setState({
-              editor: { 
-                ...state.editor, 
-                hasChanges: true,
-                modifiedRecords: newModifiedRecords
-              }
-            });
+            state.setRecordModification(idx, parsedData);
           } catch {
             // JSON is invalid, just mark as changed but don't save
-            useDocumentStore.setState({
-              editor: { ...state.editor, hasChanges: true }
-            });
+            // We can't really save invalid JSON to the record map comfortably without changing types
+            // For now, we rely on the user fixing the JSON.
+            // But we could potentially flag UI that there are errors.
+            // The previous logic just set hasChanges=true. 
+            // We can't easily do that with the new action unless we add a separate flag or allow invalid data.
+            // Let's stick strictly to valid JSON for now, or the UI won't match.
           }
         } else {
           // Content matches original, remove from modifiedRecords if present
           const idx = state.currentIndex;
-          const newModifiedRecords = new Map(state.editor.modifiedRecords);
-          newModifiedRecords.delete(idx);
-          
-          useDocumentStore.setState({
-            editor: { 
-              ...state.editor, 
-              hasChanges: newModifiedRecords.size > 0,
-              modifiedRecords: newModifiedRecords
-            }
-          });
+          state.setRecordModification(idx, null);
         }
       }
     });
@@ -278,7 +264,7 @@ export function CodeView() {
 
       const line = model.getLineContent(position.lineNumber);
       let textToCopy = wordInfo.word;
-      
+
       // Try to get the full string value
       const stringMatch = line.match(/"([^"\\]|\\.)*"/g);
       if (stringMatch) {
@@ -386,7 +372,7 @@ export function CodeView() {
           });
         }}
       />
-      
+
       {currentRecord?.errors && currentRecord.errors.length > 0 && (
         <div className="code-view-errors">
           {currentRecord.errors.map((error, i) => (

@@ -5,7 +5,7 @@ import { formatBytes } from '@/core/types';
 
 export function RecordList() {
   const parentRef = useRef<HTMLDivElement>(null);
-  
+
   const document = useDocumentStore((s) => s.document);
   const currentIndex = useDocumentStore((s) => s.currentIndex);
   const setCurrentIndex = useDocumentStore((s) => s.setCurrentIndex);
@@ -23,7 +23,7 @@ export function RecordList() {
   const rowVirtualizer = useVirtualizer({
     count: records.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 36, // Compact height
+    estimateSize: () => 42, // Height + gap
     overscan: 15,
   });
 
@@ -57,8 +57,9 @@ export function RecordList() {
               style={{
                 position: 'absolute',
                 top: 0,
-                left: 0,
-                width: '100%',
+                left: '8px',
+                right: '8px',
+                width: 'auto',
                 transform: `translateY(${virtualRow.start}px)`,
               }}
               onClick={() => setCurrentIndex(virtualRow.index)}

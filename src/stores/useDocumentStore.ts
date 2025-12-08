@@ -22,7 +22,7 @@ interface DocumentState {
   setCurrentIndex: (index: number) => void;
   navigateNext: () => void;
   navigatePrev: () => void;
-  
+
   // Search actions
   setGlobalSearch: (term: string) => void;
   setInDocSearch: (term: string) => void;
@@ -33,8 +33,9 @@ interface DocumentState {
   // Editor actions
   setEditMode: (enabled: boolean) => void;
   updateRecord: (index: number, data: unknown) => void;
+  setRecordModification: (index: number, data: unknown | null) => void;
   discardChanges: () => void;
-  
+
   // Document actions
   getCurrentRecord: () => DataRecord | null;
   getFilteredRecords: () => DataRecord[];
@@ -121,7 +122,7 @@ export const useDocumentStore = create<DocumentState>()(
     setCurrentIndex: (index: number) => {
       const { document } = get();
       if (!document) return;
-      
+
       const clampedIndex = Math.max(0, Math.min(index, document.totalRecords - 1));
       set((state) => {
         state.currentIndex = clampedIndex;
@@ -131,7 +132,7 @@ export const useDocumentStore = create<DocumentState>()(
     navigateNext: () => {
       const { document, currentIndex } = get();
       if (!document || currentIndex >= document.totalRecords - 1) return;
-      
+
       set((state) => {
         state.currentIndex = currentIndex + 1;
       });
@@ -140,7 +141,7 @@ export const useDocumentStore = create<DocumentState>()(
     navigatePrev: () => {
       const { currentIndex } = get();
       if (currentIndex <= 0) return;
-      
+
       set((state) => {
         state.currentIndex = currentIndex - 1;
       });
@@ -185,9 +186,9 @@ export const useDocumentStore = create<DocumentState>()(
     prevMatch: () => {
       set((state) => {
         if (state.search.totalMatches > 0) {
-          state.search.currentMatch = 
-            state.search.currentMatch === 0 
-              ? state.search.totalMatches - 1 
+          state.search.currentMatch =
+            state.search.currentMatch === 0
+              ? state.search.totalMatches - 1
               : state.search.currentMatch - 1;
         }
       });
@@ -213,6 +214,17 @@ export const useDocumentStore = create<DocumentState>()(
       });
     },
 
+    setRecordModification: (index: number, data: unknown | null) => {
+      set((state) => {
+        if (data === null) {
+          state.editor.modifiedRecords.delete(index);
+        } else {
+          state.editor.modifiedRecords.set(index, data);
+        }
+        state.editor.hasChanges = state.editor.modifiedRecords.size > 0;
+      });
+    },
+
     discardChanges: () => {
       set((state) => {
         state.editor.modifiedRecords = new Map();
@@ -232,13 +244,13 @@ export const useDocumentStore = create<DocumentState>()(
     getFilteredRecords: () => {
       const { document, search } = get();
       if (!document) return [];
-      
+
       if (!search.globalTerm) {
         return document.records;
       }
 
       const searchLower = search.globalTerm.toLowerCase();
-      return document.records.filter(record => 
+      return document.records.filter(record =>
         JSON.stringify(record.data).toLowerCase().includes(searchLower)
       );
     },

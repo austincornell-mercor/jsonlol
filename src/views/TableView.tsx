@@ -1,6 +1,6 @@
-import { useMemo, useCallback, useRef, useState, useEffect } from 'react';
+import { useMemo, useCallback, useRef, useState, useEffect, CSSProperties } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import type { ColDef, GridReadyEvent, GridApi, CellClickedEvent, FilterChangedEvent } from 'ag-grid-community';
+import type { ColDef, GridReadyEvent, GridApi, CellClickedEvent, FilterChangedEvent, RowClickedEvent } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { useDocumentStore } from '@/stores/useDocumentStore';
@@ -20,11 +20,11 @@ function highlightJSON(str: string): string {
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[') && !trimmed.startsWith('"')) {
     return escapeHtml(str);
   }
-  
+
   try {
     // Validate it's JSON
     JSON.parse(str);
-    
+
     return str
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -54,14 +54,14 @@ export function TableView() {
   const gridApiRef = useRef<GridApi | null>(null);
   const expandedCellRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
+
   const [expandedCell, setExpandedCell] = useState<ExpandedCell | null>(null);
   const [editValue, setEditValue] = useState('');
   const [hasFilters, setHasFilters] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-  
+
   const document = useDocumentStore((s) => s.document);
   const currentIndex = useDocumentStore((s) => s.currentIndex);
   const setCurrentIndex = useDocumentStore((s) => s.setCurrentIndex);
@@ -112,25 +112,26 @@ export function TableView() {
   // Generate column definitions from data
   const columnDefs = useMemo<ColDef[]>(() => {
     if (!document || document.records.length === 0) return [];
-    
+
     const cellStyle = (params: { value: unknown; data: { _rowIndex: number }; colDef: { field?: string } }) => {
       const cellKey = `${params.data?._rowIndex}-${params.colDef?.field}`;
       const isModified = modifiedCells.has(cellKey);
       const matchesSearch = cellMatchesSearch(params.value, searchTerm);
-      
-      return {
+
+      const style: CSSProperties = {
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
-        backgroundColor: isModified 
-          ? 'rgba(245, 158, 11, 0.25)' 
-          : matchesSearch 
-            ? 'rgba(245, 158, 11, 0.15)' 
+        backgroundColor: isModified
+          ? 'rgba(245, 158, 11, 0.25)'
+          : matchesSearch
+            ? 'rgba(245, 158, 11, 0.15)'
             : undefined,
         borderLeft: isModified ? '3px solid #f59e0b' : undefined,
       };
+      return style as any;
     };
-    
+
     // Use meta columns if available (CSV), otherwise infer from first record
     if (document.meta.columns) {
       return document.meta.columns.map(col => ({
@@ -145,11 +146,11 @@ export function TableView() {
         cellStyle,
       }));
     }
-    
+
     // Infer from first record
     const firstRecord = document.records[0]?.data;
     if (!firstRecord || typeof firstRecord !== 'object') return [];
-    
+
     return Object.keys(firstRecord as Record<string, unknown>).map(key => ({
       field: key,
       headerName: key,
@@ -176,7 +177,7 @@ export function TableView() {
     if (gridApiRef.current && document) {
       // Clear any existing selection
       gridApiRef.current.deselectAll();
-      
+
       // Find the row node by index
       const rowNode = gridApiRef.current.getRowNode(String(currentIndex));
       if (rowNode) {
@@ -187,7 +188,7 @@ export function TableView() {
   }, [currentIndex, document]);
 
   // Handle row selection
-  const onRowClicked = useCallback((event: { data: { _rowIndex: number } }) => {
+  const onRowClicked = useCallback((event: { data: { _rowIndex: number } } | RowClickedEvent) => {
     if (event.data?._rowIndex !== undefined) {
       setCurrentIndex(event.data._rowIndex);
     }
@@ -198,14 +199,14 @@ export function TableView() {
     const value = event.value;
     const field = event.colDef?.field || '';
     const rowIndex = event.data?._rowIndex ?? 0;
-    
+
     if (value !== null && value !== undefined && field) {
       const strValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
-      setExpandedCell({ 
-        rowIndex, 
-        field, 
+      setExpandedCell({
+        rowIndex,
+        field,
         value: strValue,
-        isEditing: isEditing 
+        isEditing: isEditing
       });
       setEditValue(strValue);
       // Reset modal position to center
@@ -260,7 +261,7 @@ export function TableView() {
         closeExpandedCell();
       }
     };
-    
+
     if (expandedCell && !isDragging) {
       window.document.addEventListener('mousedown', handleClickOutside);
     }
@@ -294,16 +295,16 @@ export function TableView() {
         });
       }
     };
-    
+
     const handleMouseUp = () => {
       setIsDragging(false);
     };
-    
+
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     }
-    
+
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
@@ -338,42 +339,33 @@ export function TableView() {
   // Save edited value
   const handleSave = useCallback(() => {
     if (!expandedCell || !document) return;
-    
+
     const { rowIndex, field } = expandedCell;
-    
+
     const currentModified = modifiedRecords.get(rowIndex);
     const originalData = document.records[rowIndex]?.data as Record<string, unknown>;
-    const currentData = currentModified !== undefined 
+    const currentData = currentModified !== undefined
       ? currentModified as Record<string, unknown>
       : { ...originalData };
-    
+
     let newValue: unknown = editValue;
     try {
       newValue = JSON.parse(editValue);
     } catch {
       newValue = editValue;
     }
-    
+
     const updatedData = {
       ...currentData,
       [field]: newValue,
     };
-    
-    const newModifiedRecords = new Map(modifiedRecords);
-    newModifiedRecords.set(rowIndex, updatedData);
-    
-    useDocumentStore.setState((state) => ({
-      editor: {
-        ...state.editor,
-        hasChanges: true,
-        modifiedRecords: newModifiedRecords,
-      }
-    }));
-    
+
+    useDocumentStore.getState().setRecordModification(rowIndex, updatedData);
+
     if (gridApiRef.current) {
       gridApiRef.current.refreshCells({ force: true });
     }
-    
+
     closeExpandedCell();
   }, [expandedCell, editValue, document, modifiedRecords, closeExpandedCell]);
 
@@ -401,7 +393,7 @@ export function TableView() {
   const gridTheme = theme === 'dark' ? 'ag-theme-alpine-dark' : 'ag-theme-alpine';
 
   return (
-    <div className="table-view">
+    <div className="table-view" style={{ flex: 1, height: '100%' }}>
       {/* Clear Filters Button */}
       {hasFilters && (
         <div className="table-filters-bar">
@@ -414,8 +406,8 @@ export function TableView() {
           </button>
         </div>
       )}
-      
-      <div className={`${gridTheme} table-grid`}>
+
+      <div className={`${gridTheme} table-grid`} style={{ flex: 1, width: '100%', height: '100%' }}>
         <AgGridReact
           ref={gridRef}
           rowData={rowData}
@@ -436,19 +428,19 @@ export function TableView() {
           suppressRowClickSelection={true}
         />
       </div>
-      
+
       {/* Inline Expanded Cell - Draggable */}
       {expandedCell && (
         <div className="expanded-cell-overlay">
-          <div 
-            ref={expandedCellRef} 
+          <div
+            ref={expandedCellRef}
             className={`expanded-cell ${expandedCell.isEditing ? 'editing' : ''}`}
             style={{
               transform: `translate(calc(-50% + ${modalPosition.x}px), calc(-50% + ${modalPosition.y}px))`,
             }}
             onKeyDown={handleKeyDown}
           >
-            <div 
+            <div
               className="expanded-cell-header"
               onMouseDown={handleDragStart}
               style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
@@ -494,7 +486,7 @@ export function TableView() {
                   spellCheck={false}
                 />
               ) : (
-                <pre 
+                <pre
                   className="expanded-cell-value"
                   dangerouslySetInnerHTML={{ __html: highlightJSON(expandedCell.value) }}
                 />
