@@ -95,7 +95,7 @@ function RecordDropdown({
 
           <div className="dropdown-list">
             <div className="dropdown-group-label">Current File</div>
-            {filteredRecords.slice(0, 100).map((record, i) => {
+            {filteredRecords.slice(0, 100).map((record) => {
               const actualIndex = records.indexOf(record);
               return (
                 <button
@@ -121,7 +121,7 @@ function RecordDropdown({
             {externalRecords && externalRecords.length > 0 && (
               <>
                 <div className="dropdown-group-label">{externalFileName || 'External File'}</div>
-                {filteredExternalRecords?.slice(0, 100).map((record, i) => {
+                {filteredExternalRecords?.slice(0, 100).map((record) => {
                   const actualIndex = externalRecords.indexOf(record);
                   return (
                     <button
@@ -225,19 +225,6 @@ export function CompareView() {
       loadExternalFile(file);
     }
   }, [loadExternalFile]);
-
-  // Get label for a source
-  const getSourceLabel = (source: CompareSource | null): string => {
-    if (!source) return 'Not selected';
-    switch (source.type) {
-      case 'record':
-        return `Record ${source.index + 1}`;
-      case 'column':
-        return `Column: ${source.columnName}`;
-      case 'file':
-        return `${externalFileName || 'External'} #${source.recordIndex + 1}`;
-    }
-  };
 
   const monacoTheme = theme === 'dark' ? 'jsonlol-dark' : 'jsonlol-light';
 

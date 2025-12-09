@@ -24,7 +24,7 @@ export function Header() {
 
   const [showExportModal, setShowExportModal] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
-  const [pendingEditMode, setPendingEditMode] = useState(false);
+  const [, setPendingEditMode] = useState(false);
   const [exportFilename, setExportFilename] = useState('');
   const [exportType, setExportType] = useState<'current' | 'all'>('current');
 

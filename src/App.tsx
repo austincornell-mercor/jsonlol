@@ -21,6 +21,7 @@ function App() {
   const isEditing = useDocumentStore((s) => s.editor.isEditing);
   const setGlobalSearch = useDocumentStore((s) => s.setGlobalSearch);
   const search = useDocumentStore((s) => s.search);
+  const setCurrentIndex = useDocumentStore((s) => s.setCurrentIndex);
   
   const viewMode = useSettingsStore((s) => s.viewMode);
   const setViewMode = useSettingsStore((s) => s.setViewMode);
